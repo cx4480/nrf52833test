@@ -5,14 +5,16 @@
  */
 
 #include <zephyr/kernel.h>
-#include <zephyr/device.h>
+#include <zephyr/kernel_structs.h>
 #include <zephyr/sys/__assert.h>
-#include <zephyr/drivers/gpio.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/uart.h>
-#include <zephyr/kernel_structs.h>
+#include <zephyr/drivers/pwm.h>
 #include <zephyr/random/rand32.h>
+
 #include <string.h>
 
 #include "../inc/mymath.h"
@@ -21,7 +23,6 @@
 LOG_MODULE_REGISTER(myapps,LOG_LEVEL_DBG);
 
 /* The devicetree node identifier for the "led0" alias. */
-#define LED0_NODE 	DT_ALIAS(led0)
 #define LED1_NODE 	DT_ALIAS(led1)
 #define LED2_NODE 	DT_ALIAS(led2)
 #define LED3_NODE 	DT_ALIAS(led3)
@@ -34,7 +35,6 @@ LOG_MODULE_REGISTER(myapps,LOG_LEVEL_DBG);
  * A build error on this line means your board is unsupported.
  * See the sample documentation for information on how to fix this.
  */
-static const struct gpio_dt_spec led0 = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 static const struct gpio_dt_spec led1 = GPIO_DT_SPEC_GET(LED1_NODE, gpios);
 static const struct gpio_dt_spec led2 = GPIO_DT_SPEC_GET(LED2_NODE, gpios);
 static const struct gpio_dt_spec led3 = GPIO_DT_SPEC_GET(LED3_NODE, gpios);
@@ -167,6 +167,10 @@ static K_THREAD_STACK_DEFINE(my_stack_area, WORQ_THREAD_STACK_SIZE);
 
 // Define queue structure
 static struct k_work_q offload_work_q = {0};
+
+#define PWM_LED0    DT_ALIAS(pwm_led0)
+
+static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(PWM_LED0);
 
 /* STEP 5 - Define function to emulate non-urgent work */
 static inline void emulate_work()
@@ -361,9 +365,6 @@ int main(void)
 {
 	int ret;
 	
-	if (!gpio_is_ready_dt(&led0)) {
-		return 0;
-	}
 	if (!gpio_is_ready_dt(&led1)) {
 		return 0;
 	}
@@ -388,11 +389,11 @@ int main(void)
 	if (!device_is_ready(uart)) {
 		return -1;
 	}
-	
-	ret = gpio_pin_configure_dt(&led0, GPIO_OUTPUT_ACTIVE);
-	if (ret < 0) {
+	if (!pwm_is_ready_dt(&pwm_led0)) {
+		LOG_ERR("Error: PWM device %s is not ready\n", pwm_led0.dev->name);
 		return 0;
 	}
+
 	ret = gpio_pin_configure_dt(&led1, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) {
 		return 0;
@@ -447,23 +448,37 @@ int main(void)
 		return ret;
 	}
 
-	/* start periodic timer that expires once every 0.5 second  */
-	k_timer_start(&timer0, K_MSEC(500), K_MSEC(500));
+	/* start periodic timer that expires once every 1 second  */
+	k_timer_start(&timer0, K_MSEC(1000), K_MSEC(1000));
 
 	uart_rx_enable(uart, rx_buf, sizeof(rx_buf), 100);
 	
-	LOG_INF("mcu V2 starting............");
+	gpio_pin_set_dt(&led1,0);
+	gpio_pin_set_dt(&led2,0);
+
+	LOG_INF("mcu V4 starting............");
 	while (1) {
-		ret = gpio_pin_toggle_dt(&led0);
-		if (ret < 0) {
+		#define add_speed 100
+		static int32_t led0_duty_cycle = 0;
+		static bool led0_duty_cycle_addflag = true;
+		if((led0_duty_cycle_addflag == true)&&(led0_duty_cycle >= 10000/add_speed))
+			led0_duty_cycle_addflag = false;
+		if((led0_duty_cycle_addflag == false)&&(led0_duty_cycle <= 0))
+			led0_duty_cycle_addflag = true;
+		if(led0_duty_cycle_addflag == true)
+			led0_duty_cycle++;
+		else
+			led0_duty_cycle--;
+
+		int ret = pwm_set_pulse_dt(&pwm_led0, led0_duty_cycle*add_speed);
+		if (ret) {
+			LOG_ERR("Error in pwm_set_dt(), err: %d", ret);
 			return 0;
 		}
+		#undef add_speed
+
 		bool val0 = gpio_pin_get_dt(&button0);
 		gpio_pin_set_dt(&led1,val0);
-
-		if(val0) {
-			
-		}
 
 		if(rx_buf[9])
 		{
@@ -479,7 +494,7 @@ int main(void)
 			memset(rx_buf, 0, sizeof(rx_buf));
 		}
 
-		k_msleep(100); 
+		k_msleep(10); 
 	}
 	return 0;
 }

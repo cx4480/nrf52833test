@@ -1,0 +1,11 @@
+{
+    "files.associations": {
+        "uart.h": "c",
+        "pwm.h": "c",
+        "log.h": "c",
+        "printk.h": "c",
+        "__assert.h": "c",
+        "kernel.h": "c",
+        "kernel_structs.h": "c"
+    }
+}
