@@ -13,7 +13,7 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/uart.h>
 #include <zephyr/drivers/pwm.h>
-#include <zephyr/random/rand32.h>
+#include <zephyr/random/random.h>
 
 #include <string.h>
 
@@ -443,23 +443,28 @@ int main(void)
 
 	ret = uart_callback_set(uart, uart_cb, NULL);
 	if (ret) {
+		LOG_ERR("Error in uart_callback_set(), err: %d", ret);
 		return ret;
 	}
 
 	/* start periodic timer that expires once every 1 second  */
 	k_timer_start(&timer0, K_MSEC(1000), K_MSEC(1000));
 
-	uart_rx_enable(uart, rx_buf, sizeof(rx_buf), 100);
-	
+	ret = uart_rx_enable(uart, rx_buf, sizeof(rx_buf), 100);
+	if (ret) {
+		LOG_ERR("Error in uart_rx_enable(), err: %d", ret);
+		return ret;
+	}
+
 	gpio_pin_set_dt(&led1,0);
 	gpio_pin_set_dt(&led2,0);
 
 	LOG_INF("mcu V4 starting............");
 	while (1) {
-		#define add_speed 100
+		#define add_speed 200000
 		static int32_t led0_duty_cycle = 0;
 		static bool led0_duty_cycle_addflag = true;
-		if((led0_duty_cycle_addflag == true)&&(led0_duty_cycle >= 10000/add_speed))
+		if((led0_duty_cycle_addflag == true)&&(led0_duty_cycle >= 20000000/add_speed))
 			led0_duty_cycle_addflag = false;
 		if((led0_duty_cycle_addflag == false)&&(led0_duty_cycle <= 0))
 			led0_duty_cycle_addflag = true;
