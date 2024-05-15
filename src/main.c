@@ -459,7 +459,7 @@ int main(void)
 	gpio_pin_set_dt(&led1,0);
 	gpio_pin_set_dt(&led2,0);
 
-	LOG_INF("mcu V4 starting............");
+	LOG_INF("mcu V5 starting............");
 	while (1) {
 		#define add_speed 200000
 		static int32_t led0_duty_cycle = 0;
