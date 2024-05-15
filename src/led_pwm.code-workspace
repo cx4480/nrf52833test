@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../led_pwm"
+		},
+		{
+			"name": "my52833test",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}

@@ -30,6 +30,7 @@ LOG_MODULE_REGISTER(myapps,LOG_LEVEL_DBG);
 #define SW1_NODE	DT_ALIAS(sw1) 
 #define SW2_NODE	DT_ALIAS(sw2) 
 #define SW3_NODE	DT_ALIAS(sw3) 
+#define PWM_LED0    DT_ALIAS(pwm_led0)
 
 /*
  * A build error on this line means your board is unsupported.
@@ -43,6 +44,7 @@ static const struct gpio_dt_spec button1 = GPIO_DT_SPEC_GET(SW1_NODE, gpios);
 static const struct gpio_dt_spec button2 = GPIO_DT_SPEC_GET(SW2_NODE, gpios);
 static const struct gpio_dt_spec button3 = GPIO_DT_SPEC_GET(SW3_NODE, gpios);
 static const struct device *uart = DEVICE_DT_GET(DT_NODELABEL(uart20));
+static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(PWM_LED0);
 
 static struct gpio_callback button1_cb_data;
 
@@ -167,10 +169,6 @@ static K_THREAD_STACK_DEFINE(my_stack_area, WORQ_THREAD_STACK_SIZE);
 
 // Define queue structure
 static struct k_work_q offload_work_q = {0};
-
-#define PWM_LED0    DT_ALIAS(pwm_led0)
-
-// static const struct pwm_dt_spec pwm_led0 = PWM_DT_SPEC_GET(PWM_LED0);
 
 /* STEP 5 - Define function to emulate non-urgent work */
 static inline void emulate_work()
@@ -389,10 +387,10 @@ int main(void)
 	if (!device_is_ready(uart)) {
 		return -1;
 	}
-	// if (!pwm_is_ready_dt(&pwm_led0)) {
-	// 	LOG_ERR("Error: PWM device %s is not ready\n", pwm_led0.dev->name);
-	// 	return 0;
-	// }
+	if (!pwm_is_ready_dt(&pwm_led0)) {
+		LOG_ERR("Error: PWM device %s is not ready\n", pwm_led0.dev->name);
+		return 0;
+	}
 
 	ret = gpio_pin_configure_dt(&led1, GPIO_OUTPUT_ACTIVE);
 	if (ret < 0) {
@@ -470,11 +468,11 @@ int main(void)
 		else
 			led0_duty_cycle--;
 
-		// int ret = pwm_set_pulse_dt(&pwm_led0, led0_duty_cycle*add_speed);
-		// if (ret) {
-		// 	LOG_ERR("Error in pwm_set_dt(), err: %d", ret);
-		// 	return 0;
-		// }
+		int ret = pwm_set_pulse_dt(&pwm_led0, led0_duty_cycle*add_speed);
+		if (ret) {
+			LOG_ERR("Error in pwm_set_dt(), err: %d", ret);
+			return 0;
+		}
 		#undef add_speed
 
 		bool val0 = gpio_pin_get_dt(&button0);
